@@ -1,5 +1,6 @@
 const path = require('path')
 const webpack = require('webpack')
+const merge = require('webpack-merge')
 const ExtractTextPlugin = require('extract-text-webpack-plugin')
 const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
 const bundleOutputDir = './wwwroot/dist'
@@ -10,7 +11,7 @@ module.exports = () => {
   const isDevBuild = !(process.env.NODE_ENV && process.env.NODE_ENV === 'production')
   const extractCSS = new ExtractTextPlugin('site.css')
 
-  return [{
+  const sharedConfig = () => ({
     stats: { modules: false },
     entry: { 'main': './ClientApp/boot-app.js' },
     resolve: {
@@ -22,11 +23,11 @@ module.exports = () => {
         'utils': path.resolve(__dirname, './ClientApp/utils'),
         'api': path.resolve(__dirname, './ClientApp/store/api')
       } : {
-        'components': path.resolve(__dirname, './ClientApp/components'),
-        'views': path.resolve(__dirname, './ClientApp/views'),
-        'utils': path.resolve(__dirname, './ClientApp/utils'),
-        'api': path.resolve(__dirname, './ClientApp/store/api')
-      }
+          'components': path.resolve(__dirname, './ClientApp/components'),
+          'views': path.resolve(__dirname, './ClientApp/views'),
+          'utils': path.resolve(__dirname, './ClientApp/utils'),
+          'api': path.resolve(__dirname, './ClientApp/store/api')
+        }
     },
     output: {
       path: path.join(__dirname, bundleOutputDir),
@@ -53,15 +54,33 @@ module.exports = () => {
         moduleFilenameTemplate: path.relative(bundleOutputDir, '[resourcePath]') // Point sourcemap entries to the original file locations on disk
       })
     ] : [
-      // Plugins that apply in production builds only
-      new webpack.optimize.UglifyJsPlugin(),
-      extractCSS,
-      // Compress extracted CSS.
-      new OptimizeCSSPlugin({
-        cssProcessorOptions: {
-          safe: true
-        }
-      })
-    ])
-  }]
+        // Plugins that apply in production builds only
+        new webpack.optimize.UglifyJsPlugin(),
+        extractCSS,
+        // Compress extracted CSS.
+        new OptimizeCSSPlugin({
+          cssProcessorOptions: {
+            safe: true
+          }
+        })
+      ])
+  })
+
+  const clientBundleConfig = merge(sharedConfig(), {
+    entry: { 'main-client': './ClientApp/boot-app.js' },
+    output: {
+      path: path.join(__dirname, './wwwroot/dist')
+    }
+  })
+
+  const serverBundleConfig = merge(sharedConfig(), {
+    target: 'node',
+    entry: { 'main-server': './ClientApp/boot-server.js' },
+    output: {
+      libraryTarget: 'commonjs2',
+      path: path.join(__dirname, './wwwroot/dist')
+    }
+  })
+
+  return [clientBundleConfig, serverBundleConfig]
 }

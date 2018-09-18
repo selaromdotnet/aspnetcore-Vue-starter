@@ -1,12 +1,27 @@
-var prerendering = require('aspnet-prerendering')
+import { app, router, store } from './app'
 
-module.exports = prerendering.createServerRenderer(function (params) {
-  return new Promise(function (resolve, reject) {
-    var result = '<h1>Loading...</h1>' +
-            '<p>Current time in Node is: ' + new Date() + '</p>' +
-            '<p>Request path is: ' + params.location.path + '</p>' +
-            '<p>Absolute URL is: ' + params.absoluteUrl + '</p>'
+export default context => {
+  return new Promise((resolve, reject) => {
+    router.push(context.url)
 
-    resolve({ html: result })
+    router.onReady(() => {
+      const matchedComponents = router.getMatchedComponents()
+      if (!matchedComponents.length) {
+        return reject(new Error({ code: 404 }))
+      }
+      Promise.all(matchedComponents.map(Component => {
+        if (Component.asyncData) {
+          return Component.asyncData({
+            store,
+            route: router.currentRoute
+          })
+        }
+      }))
+        .then(() => {
+          context.state = store.state
+          resolve(app)
+        })
+        .catch(reject)
+    }, reject)
   })
-})
+}
